@@ -40,13 +40,14 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     }))
     .post(
         '/signup',
-        async ({ body, error }) => {
+        async ({ body, set }) => {
             const { email, password, name } = body;
 
             // Check if email exists
             const existingUser = await db.select().from(auth).where(eq(auth.email, email));
             if (existingUser.length > 0) {
-                return error(400, 'Email already exists');
+                set.status = 400;
+                return { error: 'Email already exists' };
             }
 
             // Hash password using Bun's native Argon2
@@ -71,7 +72,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
                 return { success: true, userId: result.id };
             } catch (e) {
-                return error(500, 'Failed to create user');
+                set.status = 500;
+                return { error: 'Failed to create user' };
             }
         },
         {
@@ -84,7 +86,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     )
     .post(
         '/signin',
-        async ({ body, jwt, error }) => {
+        async ({ body, jwt, set }) => {
             const { email, password } = body;
 
             const [userAuth] = await db
@@ -93,12 +95,14 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
                 .where(eq(auth.email, email));
 
             if (!userAuth) {
-                return error(401, 'Invalid credentials');
+                set.status = 401;
+                return { error: 'Invalid credentials' };
             }
 
             const isMatch = await Bun.password.verify(password, userAuth.passwordHash);
             if (!isMatch) {
-                return error(401, 'Invalid credentials');
+                set.status = 401;
+                return { error: 'Invalid credentials' };
             }
 
             // Generate Token
@@ -124,15 +128,21 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             }),
         }
     )
-    .get('/me', async ({ bearer, error }) => {
-        if (!bearer) return error(401, 'Unauthorized');
+    .get('/me', async ({ bearer, set }) => {
+        if (!bearer) {
+            set.status = 401;
+            return { error: 'Unauthorized' };
+        }
 
         const [session] = await db
             .select()
             .from(sessions)
             .where(and(eq(sessions.token, bearer), gt(sessions.expiresAt, new Date())));
 
-        if (!session) return error(401, 'Unauthorized');
+        if (!session) {
+            set.status = 401;
+            return { error: 'Unauthorized' };
+        }
 
         const [user] = await db
             .select({
