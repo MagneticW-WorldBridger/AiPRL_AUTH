@@ -3,7 +3,7 @@ import { jwt } from '@elysiajs/jwt';
 import { bearer } from '@elysiajs/bearer';
 import { db } from '../db';
 import { auth, users, sessions } from '../db/schema';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, gt, ilike, or } from 'drizzle-orm';
 import { swagger } from '@elysiajs/swagger';
 
 export const authRoutes = new Elysia({ prefix: '/auth' })
@@ -174,4 +174,34 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         detail: {
             security: [{ bearerAuth: [] }]
         }
+    })
+    .get('/search', async ({ query }) => {
+        const searchTerm = query.q || '';
+        
+        if (!searchTerm) {
+            return { users: [] };
+        }
+
+        const results = await db
+            .select({
+                userId: users.id,
+                name: users.name,
+                email: auth.email,
+                createdAt: users.createdAt,
+            })
+            .from(users)
+            .innerJoin(auth, eq(users.id, auth.userId))
+            .where(
+                or(
+                    ilike(users.name, `%${searchTerm}%`),
+                    ilike(auth.email, `%${searchTerm}%`)
+                )
+            )
+            .limit(10);
+
+        return { users: results };
+    }, {
+        query: t.Object({
+            q: t.Optional(t.String()),
+        }),
     });
