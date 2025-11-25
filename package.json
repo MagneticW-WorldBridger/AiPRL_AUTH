@@ -1,0 +1,28 @@
+{
+  "name": "auth-service",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "elysia": "latest",
+    "@elysiajs/swagger": "latest",
+    "@elysiajs/jwt": "latest",
+    "@elysiajs/cors": "latest",
+    "@elysiajs/bearer": "latest",
+    "drizzle-orm": "latest",
+    "postgres": "latest",
+    "elysia-rate-limit": "latest",
+    "elysia-helmet": "latest",
+    "elysia-logger": "latest"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "drizzle-kit": "latest",
+    "typescript": "latest"
+  }
+}
