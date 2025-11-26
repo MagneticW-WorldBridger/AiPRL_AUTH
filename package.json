@@ -6,7 +6,8 @@
     "start": "bun run src/index.ts",
     "test": "bun test",
     "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate"
+    "migrate": "drizzle-kit migrate",
+    "migrate:apply": "bun run scripts/apply-migrations.ts"
   },
   "dependencies": {
     "elysia": "latest",

@@ -24,3 +24,12 @@ export const sessions = pgTable('sessions', {
     expiresAt: timestamp('expires_at').notNull(),
     createdAt: timestamp('created_at').defaultNow(),
 });
+
+export const roles = pgTable('roles', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => users.id).notNull(),
+    role: text('role').notNull(), // user, admin, employee, client, bot
+    title: text('title'),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+});

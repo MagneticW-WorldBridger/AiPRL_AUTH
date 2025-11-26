@@ -2,8 +2,8 @@ import { Elysia, t } from 'elysia';
 import { jwt } from '@elysiajs/jwt';
 import { bearer } from '@elysiajs/bearer';
 import { db } from '../db';
-import { auth, users, sessions } from '../db/schema';
-import { eq, and, gt } from 'drizzle-orm';
+import { auth, users, sessions, roles } from '../db/schema';
+import { eq, and, gt, desc } from 'drizzle-orm';
 import { swagger } from '@elysiajs/swagger';
 
 export const authRoutes = new Elysia({ prefix: '/auth' })
@@ -52,7 +52,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             // Hash password using Bun's native Argon2
             const passwordHash = await Bun.password.hash(password);
 
-            // Transaction to create user and auth
+            // Transaction to create user, auth, and default role
             try {
                 const result = await db.transaction(async (tx) => {
                     const [newUser] = await tx
@@ -64,6 +64,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
                         userId: newUser.id,
                         email,
                         passwordHash,
+                    });
+
+                    // Create default 'user' role
+                    await tx.insert(roles).values({
+                        userId: newUser.id,
+                        role: 'user',
+                        title: null,
                     });
 
                     return newUser;
@@ -115,7 +122,23 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
                 expiresAt,
             });
 
-            return { success: true, token };
+            // Get user's role
+            const [userRole] = await db
+                .select({
+                    role: roles.role,
+                    title: roles.title,
+                })
+                .from(roles)
+                .where(eq(roles.userId, userAuth.userId))
+                .orderBy(desc(roles.createdAt))
+                .limit(1);
+
+            return { 
+                success: true, 
+                token,
+                role: userRole?.role || 'user',
+                title: userRole?.title || null
+            };
         },
         {
             body: t.Object({
@@ -170,6 +193,36 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
         await db.delete(sessions).where(eq(sessions.token, bearer));
         return { success: true };
+    }, {
+        detail: {
+            security: [{ bearerAuth: [] }]
+        }
+    })
+    .get('/role', async ({ bearer, error }) => {
+        if (!bearer) return error(401, 'Unauthorized');
+
+        const [session] = await db
+            .select()
+            .from(sessions)
+            .where(and(eq(sessions.token, bearer), gt(sessions.expiresAt, new Date())));
+
+        if (!session) return error(401, 'Unauthorized');
+
+        const [userRole] = await db
+            .select({
+                role: roles.role,
+                title: roles.title,
+                createdAt: roles.createdAt,
+                updatedAt: roles.updatedAt,
+            })
+            .from(roles)
+            .where(eq(roles.userId, session.userId))
+            .orderBy(desc(roles.createdAt))
+            .limit(1);
+
+        if (!userRole) return error(404, 'Role not found');
+
+        return { role: userRole.role, title: userRole.title };
     }, {
         detail: {
             security: [{ bearerAuth: [] }]
